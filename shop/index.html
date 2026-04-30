@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OPAL — Adventure Gear Store</title>
+  <meta name="description" content="Premium outdoor adventure gear. Backpacks, tents, apparel and more. Shop OPAL for your next expedition." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Rubik:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <!-- Icons (Lucide via CDN) -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ===== NAVBAR ===== -->
+  <header id="navbar">
+    <nav class="nav-container">
+      <a href="#/" class="nav-logo" id="nav-logo-link">
+        <span class="logo-mark">◈</span>
+        <span class="logo-text">OPAL</span>
+      </a>
+
+      <div class="nav-links" id="nav-links">
+        <a href="#/shop" class="nav-link" id="nav-shop-link">Shop</a>
+        <a href="#/cart" class="nav-link cart-link" id="nav-cart-link">
+          <i data-lucide="shopping-bag"></i>
+          <span class="cart-badge" id="cart-badge">0</span>
+        </a>
+        <div class="nav-auth" id="nav-auth">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+
+      <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Toggle menu">
+        <i data-lucide="menu"></i>
+      </button>
+    </nav>
+
+    <!-- Mobile Menu -->
+    <div class="mobile-menu" id="mobile-menu">
+      <a href="#/shop" class="mobile-link" id="mobile-shop-link">Shop</a>
+      <a href="#/cart" class="mobile-link" id="mobile-cart-link">Cart</a>
+      <div id="mobile-auth"><!-- filled by JS --></div>
+    </div>
+  </header>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <main id="app-root">
+    <!-- All pages rendered here by JS -->
+    <div class="page-loader" id="page-loader">
+      <div class="loader-ring"></div>
+    </div>
+  </main>
+
+  <!-- ===== TOAST NOTIFICATION ===== -->
+  <div id="toast-container" aria-live="polite"></div>
+
+  <!-- ===== CART DRAWER ===== -->
+  <div class="drawer-overlay" id="drawer-overlay"></div>
+  <aside class="cart-drawer" id="cart-drawer">
+    <div class="drawer-header">
+      <h2 class="drawer-title">Your Cart</h2>
+      <button class="drawer-close" id="drawer-close" aria-label="Close cart">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+    <div class="drawer-body" id="drawer-body"><!-- filled by JS --></div>
+    <div class="drawer-footer" id="drawer-footer"><!-- filled by JS --></div>
+  </aside>
+
+  <script src="app.js"></script>
+</body>
+</html>

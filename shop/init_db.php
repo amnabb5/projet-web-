@@ -4,7 +4,7 @@
 
 $host = "localhost";
 $user = "root";
-$pass = "root";
+$pass = "";
 
 try {
     $pdo = new PDO("mysql:host=$host;charset=utf8", $user, $pass);
@@ -55,25 +55,33 @@ try {
 
     // seed products with stock values
     $products = [
-     
         ["p1", "Summit Series Alpha Backpack", 249.99, "Bags",
          "Ultra-durable, weather-resistant 45L backpack for extended backcountry missions. Features adjustable suspension, multiple attachment points, and hydration sleeve.",
          "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", 15, 0],
+        ["p2", "Terra Nova 2-Person Tent", 399.00, "Shelter",
+         "Ultralight 4-season tent with a geodesic design. Built to withstand high winds and heavy snow loads while staying under 2kg.",
+         "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", 5, 0],
         ["p3", "Merino Wool Base Layer Top", 85.00, "Apparel",
          "Temperature-regulating, odor-resistant 100% merino wool. The perfect foundation for any cold-weather layering system.",
          "https://images.unsplash.com/photo-1618354691438-25bc04584c23?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", 20, 0],
         ["p4", "Titanium Camp Stove", 54.50, "Cooking",
          "Micro-sized, high-output stove that boils a liter of water in under 3 minutes. Folds down to fit inside your mug.",
-         "https://images.unsplash.com/photo-1606228303038-f80e7d0bbd60?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", 12, 0],
+         "assets/AGTitaniumRange2023-70.png", 12, 0],
         ["p5", "Alpine Ascend Hiking Boots", 189.95, "Footwear",
          "Waterproof, breathable Gore-Tex lined boots with Vibram soles for unmatched traction on wet and rocky terrain.",
-         "https://images.unsplash.com/photo-1520639888713-7851133b1ed0?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", 7, 0],
+         "https://images.unsplash.com/photo-1520639888713-7851133b1ed0?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", 7, 1],
         ["p6", "Down Sleeping Bag (15F)", 289.00, "Sleeping",
          "800-fill water-resistant down provides exceptional warmth without the weight. Mummy shape maximizes thermal efficiency.",
-         "https://images.unsplash.com/photo-1559810852-25927c3a05f1?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", 6, 0],
+         "assets/SS24Womens-Riff-15F-Down-Sleeping-Bag-1__44714.1699022633.png", 6, 0],
+        ["p7", "Nike ReactX Rejuven8", 140.00, "Footwear",
+         "Experience next-level comfort with the ReactX Rejuven8. Features ultra-responsive cushioning and a breathable mesh upper.",
+         "shoe1/WMNS+NIKE+REACTX+REJUVEN8.avif", 10, 1],
+        ["p8", "G.T. Cut 3 Turbo", 190.00, "Footwear",
+         "Built for speed and quick cuts, the G.T. Cut 3 Turbo provides elite traction and explosive energy return.",
+         "shoe2/G.T.+CUT+3+TURBO.avif", 10, 1],
     ];
 
-    $stmt = $pdo->prepare("INSERT IGNORE INTO products (id, name, price, category, description, image, stock, customizable) VALUES (?, ?, ?, ?, ?,?,?,?)");
+    $stmt = $pdo->prepare("REPLACE INTO products (id, name, price, category, description, image, stock, customizable) VALUES (?, ?, ?, ?, ?,?,?,?)");
     foreach ($products as $p) {
         $stmt->execute($p);
     }

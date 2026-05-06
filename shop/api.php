@@ -105,9 +105,10 @@ if ($action === "add_product") {
     $name     = trim($body["name"] ?? "");
     $price    = (float)($body["price"] ?? 0);
     $category = trim($body["category"] ?? "");
-    $image    = trim($body["image"] ?? "");
-    $desc     = trim($body["description"] ?? "");
-    $stock    = (int)($body["stock"] ?? 10);
+    $image        = trim($body["image"] ?? "");
+    $desc         = trim($body["description"] ?? "");
+    $stock        = (int)($body["stock"] ?? 10);
+    $customizable = !empty($body["customizable"]) ? 1 : 0;
 
     if (!$name || $price <= 0 || !$image || !$desc) {
         echo json_encode(["error" => "Missing required fields"]);
@@ -117,8 +118,8 @@ if ($action === "add_product") {
     if ($stock < 0) $stock = 0;
 
     $id   = "p" . time();
-    $stmt = $pdo->prepare("INSERT INTO products (id, name, price, category, description, image, stock, customizable) VALUES (?, ?, ?, ?, ?, ?, ?, 0)");
-    $stmt->execute([$id, $name, $price, $category, $desc, $image, $stock]);
+    $stmt = $pdo->prepare("INSERT INTO products (id, name, price, category, description, image, stock, customizable) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$id, $name, $price, $category, $desc, $image, $stock, $customizable]);
 
     echo json_encode(["success" => true, "id" => $id]);
     exit;
@@ -134,9 +135,10 @@ if ($action === "update_product") {
     $name     = trim($body["name"] ?? "");
     $price    = (float)($body["price"] ?? 0);
     $category = trim($body["category"] ?? "");
-    $image    = trim($body["image"] ?? "");
-    $desc     = trim($body["description"] ?? "");
-    $stock    = (int)($body["stock"] ?? 0);
+    $image        = trim($body["image"] ?? "");
+    $desc         = trim($body["description"] ?? "");
+    $stock        = (int)($body["stock"] ?? 0);
+    $customizable = !empty($body["customizable"]) ? 1 : 0;
 
     if (!$id || !$name || $price <= 0) {
         echo json_encode(["error" => "Missing required fields"]);
@@ -145,8 +147,8 @@ if ($action === "update_product") {
 
     if ($stock < 0) $stock = 0;
 
-    $stmt = $pdo->prepare("UPDATE products SET name=?, price=?, category=?, description=?, image=?, stock=? WHERE id=?");
-    $stmt->execute([$name, $price, $category, $desc, $image, $stock, $id]);
+    $stmt = $pdo->prepare("UPDATE products SET name=?, price=?, category=?, description=?, image=?, stock=?, customizable=? WHERE id=?");
+    $stmt->execute([$name, $price, $category, $desc, $image, $stock, $customizable, $id]);
 
     echo json_encode(["success" => true]);
     exit;

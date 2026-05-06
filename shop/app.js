@@ -12,6 +12,16 @@ const SHOE_VARIANTS = [
     { id: 'black',  color: '#1C1917', name: 'Stealth Black', image: 'https://images.unsplash.com/photo-1539185441755-769473a23570?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' }
 ];
 const SHOE_SIZES = ['US 7', 'US 8', 'US 9', 'US 10', 'US 11', 'US 12'];
+const NIKE_REACTX_VARIANTS = [
+    { id: 'v1', color: '#5A78D7', name: 'Oceanic Blue',  image: 'shoe1/WMNS+NIKE+REACTX+REJUVEN8.avif' },
+    { id: 'v2', color: 'linear-gradient(135deg, #255BBC 50%, #8F0218 50%)', name: 'Crimson Red',   image: 'shoe1/WMNS+NIKE+REACTX+REJUVEN8 (1).avif' },
+    { id: 'v3', color: '#DA1E6B', name: 'Magenta Pink',  image: 'shoe1/WMNS+NIKE+REACTX+REJUVEN8 (2).avif' },
+    { id: 'v4', color: '#110F10', name: 'Pitch Black',   image: 'shoe1/WMNS+NIKE+REACTX+REJUVEN8 (3).avif' }
+];
+const NIKE_GTCUT_VARIANTS = [
+    { id: 'v1', color: '#9EDB7E', name: 'Lime Green',    image: 'shoe2/G.T.+CUT+3+TURBO.avif' },
+    { id: 'v2', color: '#202948', name: 'Deep Navy',     image: 'shoe2/G.T.+CUT+3+TURBO (1).avif' }
+];
 
 const state = {
     products: [],
@@ -41,10 +51,20 @@ async function init() {
     }
 
     const products = await api("get_products");
-    state.products = products.map(p => {
-        if (p.customizable) { p.variants = SHOE_VARIANTS; p.sizes = SHOE_SIZES; }
-        return p;
-    });
+    if (Array.isArray(products)) {
+        state.products = products.map(p => {
+            if (p.customizable) {
+                p.sizes = SHOE_SIZES;
+                if (p.name.includes("ReactX")) p.variants = NIKE_REACTX_VARIANTS;
+                else if (p.name.includes("G.T. Cut")) p.variants = NIKE_GTCUT_VARIANTS;
+                else p.variants = SHOE_VARIANTS;
+            }
+            return p;
+        });
+    } else {
+        console.error("Failed to load products:", products);
+        state.products = [];
+    }
 
     const cartItems = await api("get_cart");
     state.cart = cartItems.map(item => ({
@@ -198,15 +218,14 @@ function renderLanding(root) {
           <img src="https://images.unsplash.com/photo-1527004013197-933c4bb611b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" alt="Mountain lake">
         </div>
         <div class="collage-item collage-wide">
-          <img src="https://images.unsplash.com/photo-1486915309615-1eccd3f6e0a7?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80" alt="Hikers in fog">
+          <img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80" alt="Hikers in fog">
           <div class="collage-tag">Expedition Gear</div>
         </div>
         <div class="collage-item">
           <img src="https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" alt="Rocky terrain">
         </div>
       </div>
-      <div class="collage-accent"></div>
-      <div class="collage-coords">50.03544286908985N<br>36.36396570730049W</div>
+      </div>
     </section>
 
     <section class="landing-categories">
@@ -438,7 +457,7 @@ function renderProductDetail(root, params) {
         if (product.customizable) {
             const colorsHTML = product.variants.map(v => `
         <button class="color-swatch ${v.id === selectedVariant.id ? 'active' : ''}"
-                style="background-color: ${v.color};" data-id="${v.id}" title="${v.name}"></button>
+                style="background: ${v.color};" data-id="${v.id}" title="${v.name}"></button>
       `).join('');
             const sizesHTML = product.sizes.map(s => `
         <button class="size-btn ${s === selectedSize ? 'active' : ''}" data-size="${s}">${s}</button>
@@ -725,6 +744,10 @@ function renderAdmin(root) {
             <label class="form-label">Stock Quantity *</label>
             <input type="number" min="0" id="p-stock" class="form-input" value="10">
           </div>
+          <div class="form-group" style="display:flex;align-items:center;gap:10px;">
+            <input type="checkbox" id="p-customizable" style="width:18px;height:18px;">
+            <label class="form-label" style="margin-bottom:0;">Mark as Customizable (Shoes only)</label>
+          </div>
 
           <div class="form-group">
             <label class="form-label">Product Image *</label>
@@ -851,6 +874,7 @@ function renderAdmin(root) {
         previewContainer.style.display = 'none';
         formError.style.display = 'none';
         uploadStatus.textContent = '';
+        document.getElementById('p-customizable').checked = false;
         currentMode = 'add';
         editingId   = null;
         title.textContent       = 'Add New Product';
@@ -867,6 +891,7 @@ function renderAdmin(root) {
         const category = document.getElementById('p-category').value;
         const stock    = parseInt(document.getElementById('p-stock').value);
         const desc     = document.getElementById('p-desc').value.trim();
+        const customizable = document.getElementById('p-customizable').checked;
 
         // figure out what image url we're using
         let image = '';
@@ -884,9 +909,9 @@ function renderAdmin(root) {
 
         let result;
         if (currentMode === 'add') {
-            result = await api("add_product", { name, price, category, image, description: desc, stock }, "POST");
+            result = await api("add_product", { name, price, category, image, description: desc, stock, customizable }, "POST");
         } else {
-            result = await api("update_product", { id: editingId, name, price, category, image, description: desc, stock }, "POST");
+            result = await api("update_product", { id: editingId, name, price, category, image, description: desc, stock, customizable }, "POST");
         }
 
         if (result.error) {
@@ -922,6 +947,7 @@ function renderAdmin(root) {
         document.getElementById('p-price').value    = product.price;
         document.getElementById('p-stock').value    = product.stock;
         document.getElementById('p-desc').value     = product.description;
+        document.getElementById('p-customizable').checked = product.customizable;
 
         // if the image is a url, switch to url tab
         if (product.image.startsWith('http')) {
@@ -1160,6 +1186,8 @@ function updateAuthUI() {
 window.logout = async function() {
     await api("logout", {}, "POST");
     state.user = null;
+    state.cart = [];
+    updateCartBadge();
     updateAuthUI();
     showToast('Logged out successfully');
     window.location.hash = '/';

@@ -935,25 +935,21 @@ textarea.form-input {
 }
 
 .color-swatch {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  border: 1px solid rgba(255,255,255,0.2);
+  border: 2px solid transparent;
   outline: 2px solid transparent;
   outline-offset: 2px;
   transition: var(--transition);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(255,255,255,0.1);
 }
 
 .color-swatch:hover {
-  transform: scale(1.15);
-  border-color: rgba(255,255,255,0.5);
+  transform: scale(1.1);
 }
 
 .color-swatch.active {
   outline-color: var(--accent);
-  transform: scale(1.1);
-  border-color: #fff;
 }
 
 .size-options {

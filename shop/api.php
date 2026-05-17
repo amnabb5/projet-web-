@@ -105,10 +105,9 @@ if ($action === "add_product") {
     $name     = trim($body["name"] ?? "");
     $price    = (float)($body["price"] ?? 0);
     $category = trim($body["category"] ?? "");
-    $image        = trim($body["image"] ?? "");
-    $desc         = trim($body["description"] ?? "");
-    $stock        = (int)($body["stock"] ?? 10);
-    $customizable = !empty($body["customizable"]) ? 1 : 0;
+    $image    = trim($body["image"] ?? "");
+    $desc     = trim($body["description"] ?? "");
+    $stock    = (int)($body["stock"] ?? 10);
 
     if (!$name || $price <= 0 || !$image || !$desc) {
         echo json_encode(["error" => "Missing required fields"]);
@@ -118,8 +117,8 @@ if ($action === "add_product") {
     if ($stock < 0) $stock = 0;
 
     $id   = "p" . time();
-    $stmt = $pdo->prepare("INSERT INTO products (id, name, price, category, description, image, stock, customizable) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$id, $name, $price, $category, $desc, $image, $stock, $customizable]);
+    $stmt = $pdo->prepare("INSERT INTO products (id, name, price, category, description, image, stock, customizable) VALUES (?, ?, ?, ?, ?, ?, ?, 0)");
+    $stmt->execute([$id, $name, $price, $category, $desc, $image, $stock]);
 
     echo json_encode(["success" => true, "id" => $id]);
     exit;
@@ -135,10 +134,9 @@ if ($action === "update_product") {
     $name     = trim($body["name"] ?? "");
     $price    = (float)($body["price"] ?? 0);
     $category = trim($body["category"] ?? "");
-    $image        = trim($body["image"] ?? "");
-    $desc         = trim($body["description"] ?? "");
-    $stock        = (int)($body["stock"] ?? 0);
-    $customizable = !empty($body["customizable"]) ? 1 : 0;
+    $image    = trim($body["image"] ?? "");
+    $desc     = trim($body["description"] ?? "");
+    $stock    = (int)($body["stock"] ?? 0);
 
     if (!$id || !$name || $price <= 0) {
         echo json_encode(["error" => "Missing required fields"]);
@@ -147,8 +145,8 @@ if ($action === "update_product") {
 
     if ($stock < 0) $stock = 0;
 
-    $stmt = $pdo->prepare("UPDATE products SET name=?, price=?, category=?, description=?, image=?, stock=?, customizable=? WHERE id=?");
-    $stmt->execute([$name, $price, $category, $desc, $image, $stock, $customizable, $id]);
+    $stmt = $pdo->prepare("UPDATE products SET name=?, price=?, category=?, description=?, image=?, stock=? WHERE id=?");
+    $stmt->execute([$name, $price, $category, $desc, $image, $stock, $id]);
 
     echo json_encode(["success" => true]);
     exit;
@@ -199,6 +197,8 @@ if ($action === "login") {
     $_SESSION["user_id"]  = $user["id"];
     $_SESSION["username"] = $user["username"];
     $_SESSION["is_admin"] = (bool)$user["is_admin"];
+    $_SESSION["phone"]    = $user["phone"] ?? "";
+    $_SESSION["address"]  = $user["address"] ?? "";
 
     // cookie to remember username for 7 days
     setcookie("opal_username", $user["username"], time() + (7 * 24 * 60 * 60), "/");
@@ -206,7 +206,9 @@ if ($action === "login") {
     echo json_encode([
         "success"  => true,
         "username" => $user["username"],
-        "isAdmin"  => (bool)$user["is_admin"]
+        "isAdmin"  => (bool)$user["is_admin"],
+        "phone"    => $user["phone"] ?? "",
+        "address"  => $user["address"] ?? ""
     ]);
     exit;
 }
@@ -223,7 +225,9 @@ if ($action === "check_session") {
         echo json_encode([
             "loggedIn" => true,
             "username" => $_SESSION["username"],
-            "isAdmin"  => (bool)$_SESSION["is_admin"]
+            "isAdmin"  => (bool)$_SESSION["is_admin"],
+            "phone"    => $_SESSION["phone"] ?? "",
+            "address"  => $_SESSION["address"] ?? ""
         ]);
     } else {
         echo json_encode(["loggedIn" => false]);
@@ -234,6 +238,8 @@ if ($action === "check_session") {
 if ($action === "register") {
     $username = trim($body["username"] ?? "");
     $password = trim($body["password"] ?? "");
+    $phone    = trim($body["phone"] ?? "");
+    $address  = trim($body["address"] ?? "");
 
     if (!$username || !$password) {
         echo json_encode(["error" => "Username and password are required"]);
@@ -245,6 +251,21 @@ if ($action === "register") {
         exit;
     }
 
+    // Algerian phone number: 10 digits starting with 0
+    if (!$phone) {
+        echo json_encode(["error" => "Phone number is required"]);
+        exit;
+    }
+    if (!preg_match('/^0[0-9]{9}$/', $phone)) {
+        echo json_encode(["error" => "Phone number must be 10 digits and start with 0 (e.g. 0559734667)"]);
+        exit;
+    }
+
+    if (!$address) {
+        echo json_encode(["error" => "Address is required"]);
+        exit;
+    }
+
     $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
     $stmt->execute([$username]);
     if ($stmt->fetch()) {
@@ -253,8 +274,8 @@ if ($action === "register") {
     }
 
     // save plain text password
-    $stmt = $pdo->prepare("INSERT INTO users (username, password, is_admin) VALUES (?, ?, 0)");
-    $stmt->execute([$username, $password]);
+    $stmt = $pdo->prepare("INSERT INTO users (username, password, phone, address, is_admin) VALUES (?, ?, ?, ?, 0)");
+    $stmt->execute([$username, $password, $phone, $address]);
 
     echo json_encode(["success" => true]);
     exit;
@@ -377,5 +398,211 @@ if ($action === "clear_cart") {
     exit;
 }
 
+if ($action === "checkout") {
+    // user must be logged in to place an order
+    if (empty($_SESSION["user_id"])) {
+        echo json_encode(["error" => "Please login to checkout"]);
+        exit;
+    }
+
+    // get all cart items for this session
+    $stmt  = $pdo->prepare("SELECT * FROM cart WHERE session_id = ?");
+    $stmt->execute([$sessionId]);
+    $items = $stmt->fetchAll();
+
+    if (empty($items)) {
+        echo json_encode(["error" => "Your cart is empty"]);
+        exit;
+    }
+
+    // calculate total and verify stock for each item
+    $total = 0;
+    $itemDetails = [];
+
+    foreach ($items as $item) {
+        $stmt2 = $pdo->prepare("SELECT * FROM products WHERE id = ?");
+        $stmt2->execute([$item["product_id"]]);
+        $product = $stmt2->fetch();
+
+        if (!$product) continue;
+
+        // double check stock is still available
+        if ($product["stock"] < $item["quantity"]) {
+            echo json_encode(["error" => "Sorry, " . $product["name"] . " only has " . $product["stock"] . " left in stock."]);
+            exit;
+        }
+
+        $total += $product["price"] * $item["quantity"];
+        $itemDetails[] = [
+            "product"  => $product,
+            "quantity" => $item["quantity"],
+            "variant"  => $item["variant_data"] ? json_decode($item["variant_data"], true) : null,
+            "size"     => $item["size"]
+        ];
+    }
+
+    // create the order record - user info is fetched via user_id when needed
+    $stmt = $pdo->prepare("INSERT INTO orders (user_id, total, status) VALUES (?, ?, 'pending')");
+    $stmt->execute([$_SESSION["user_id"], $total]);
+    $orderId = $pdo->lastInsertId();
+
+    // save each item in order_items and reduce the stock
+    foreach ($itemDetails as $detail) {
+        $variantInfo = "";
+        if ($detail["variant"]) {
+            $variantInfo = $detail["variant"]["name"] ?? "";
+        }
+        if ($detail["size"]) {
+            $variantInfo .= ($variantInfo ? " / " : "") . $detail["size"];
+        }
+
+        $stmt = $pdo->prepare("INSERT INTO order_items (order_id, product_id, product_name, price, quantity, variant_info) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $orderId,
+            $detail["product"]["id"],
+            $detail["product"]["name"],
+            $detail["product"]["price"],
+            $detail["quantity"],
+            $variantInfo
+        ]);
+
+        // reduce stock
+        $stmt = $pdo->prepare("UPDATE products SET stock = stock - ? WHERE id = ?");
+        $stmt->execute([$detail["quantity"], $detail["product"]["id"]]);
+    }
+
+    // clear the cart after successful order
+    $stmt = $pdo->prepare("DELETE FROM cart WHERE session_id = ?");
+    $stmt->execute([$sessionId]);
+
+    echo json_encode(["success" => true, "orderId" => $orderId, "total" => $total]);
+    exit;
+}
+
+// get all orders - admin only
+if ($action === "get_orders") {
+    if (empty($_SESSION["is_admin"])) {
+        echo json_encode(["error" => "Not authorized"]);
+        exit;
+    }
+
+    // join with users to get customer info from the users table
+    $stmt   = $pdo->query("SELECT o.*, u.username, u.phone, u.address FROM orders o LEFT JOIN users u ON o.user_id = u.id ORDER BY o.created_at DESC");
+    $orders = $stmt->fetchAll();
+
+    foreach ($orders as &$order) {
+        // get the items for each order
+        $stmt2 = $pdo->prepare("SELECT oi.*, p.image FROM order_items oi LEFT JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?");
+        $stmt2->execute([$order["id"]]);
+        $order["items"] = $stmt2->fetchAll();
+        $order["total"] = (float)$order["total"];
+    }
+
+    echo json_encode($orders);
+    exit;
+}
+
+if ($action === "update_order_status") {
+    if (empty($_SESSION["is_admin"])) {
+        echo json_encode(["error" => "Not authorized"]);
+        exit;
+    }
+
+    $orderId = (int)($body["orderId"] ?? 0);
+    $status  = trim($body["status"] ?? "");
+
+    $allowed = ["pending", "done"];
+    if (!$orderId || !in_array($status, $allowed)) {
+        echo json_encode(["error" => "Invalid order or status"]);
+        exit;
+    }
+
+    $stmt = $pdo->prepare("UPDATE orders SET status = ? WHERE id = ?");
+    $stmt->execute([$status, $orderId]);
+
+    echo json_encode(["success" => true]);
+    exit;
+}
+
+// get current user profile
+if ($action === "get_profile") {
+    if (empty($_SESSION["user_id"])) {
+        echo json_encode(["error" => "Not logged in"]);
+        exit;
+    }
+
+    $stmt = $pdo->prepare("SELECT username, phone, address FROM users WHERE id = ?");
+    $stmt->execute([$_SESSION["user_id"]]);
+    $user = $stmt->fetch();
+
+    if (!$user) {
+        echo json_encode(["error" => "User not found"]);
+        exit;
+    }
+
+    echo json_encode($user);
+    exit;
+}
+
+// update current user profile
+if ($action === "update_profile") {
+    if (empty($_SESSION["user_id"])) {
+        echo json_encode(["error" => "Not logged in"]);
+        exit;
+    }
+
+    $username    = trim($body["username"] ?? "");
+    $phone       = trim($body["phone"] ?? "");
+    $address     = trim($body["address"] ?? "");
+    $newPassword = trim($body["password"] ?? "");
+
+    if (!$username) {
+        echo json_encode(["error" => "Username is required"]);
+        exit;
+    }
+
+    // Algerian phone number validation
+    if (!$phone) {
+        echo json_encode(["error" => "Phone number is required"]);
+        exit;
+    }
+    if (!preg_match('/^0[0-9]{9}$/', $phone)) {
+        echo json_encode(["error" => "Phone number must be 10 digits and start with 0 (e.g. 0559734667)"]);
+        exit;
+    }
+
+    if (!$address) {
+        echo json_encode(["error" => "Address is required"]);
+        exit;
+    }
+
+    // check if username is taken by another user
+    $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
+    $stmt->execute([$username, $_SESSION["user_id"]]);
+    if ($stmt->fetch()) {
+        echo json_encode(["error" => "Username already taken"]);
+        exit;
+    }
+
+    if ($newPassword) {
+        if (strlen($newPassword) < 4) {
+            echo json_encode(["error" => "Password must be at least 4 characters"]);
+            exit;
+        }
+        $stmt = $pdo->prepare("UPDATE users SET username=?, phone=?, address=?, password=? WHERE id=?");
+        $stmt->execute([$username, $phone, $address, $newPassword, $_SESSION["user_id"]]);
+    } else {
+        $stmt = $pdo->prepare("UPDATE users SET username=?, phone=?, address=? WHERE id=?");
+        $stmt->execute([$username, $phone, $address, $_SESSION["user_id"]]);
+    }
+
+    // update session
+    $_SESSION["username"] = $username;
+    $_SESSION["phone"]    = $phone;
+    $_SESSION["address"]  = $address;
+
+    echo json_encode(["success" => true, "username" => $username, "phone" => $phone, "address" => $address]);
+    exit;
+}
+
 echo json_encode(["error" => "Unknown action: $action"]);
-?>

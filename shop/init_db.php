@@ -1,10 +1,10 @@
 <?php
-// run this file once to set up the database
-// after running it you can delete it or just leave it
+// run this once to create the database and all tables
+// safe to run again - uses IF NOT EXISTS so it won't break existing data
 
 $host = "localhost";
 $user = "root";
-$pass = "";
+$pass = "root";
 
 try {
     $pdo = new PDO("mysql:host=$host;charset=utf8", $user, $pass);
@@ -13,80 +13,96 @@ try {
     $pdo->exec("CREATE DATABASE IF NOT EXISTS opal_store CHARACTER SET utf8 COLLATE utf8_general_ci");
     $pdo->exec("USE opal_store");
 
-    // users table - password stored as plain text
+    // users - stores login info + contact details
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
+        id       INT AUTO_INCREMENT PRIMARY KEY,
         username VARCHAR(100) NOT NULL UNIQUE,
         password VARCHAR(255) NOT NULL,
+        phone    VARCHAR(20),
+        address  VARCHAR(255),
         is_admin TINYINT(1) DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
 
-    // products table - image can be a url or a filename saved in the uploads folder
-    // stock column limits how many units can be purchased
+    // products - image can be a url or a filename in the uploads/ folder
     $pdo->exec("CREATE TABLE IF NOT EXISTS products (
-        id VARCHAR(50) PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        price DECIMAL(10,2) NOT NULL,
-        category VARCHAR(100),
-        description TEXT,
-        image VARCHAR(500),
-        stock INT DEFAULT 10,
+        id           VARCHAR(50) PRIMARY KEY,
+        name         VARCHAR(255) NOT NULL,
+        price        DECIMAL(10,2) NOT NULL,
+        category     VARCHAR(100),
+        description  TEXT,
+        image        VARCHAR(500),
+        stock        INT DEFAULT 10,
         customizable TINYINT(1) DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
 
-    // cart table - tied to session so guests can use it too
+    // cart - session based so guests can use it too
     $pdo->exec("CREATE TABLE IF NOT EXISTS cart (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        session_id VARCHAR(100) NOT NULL,
-        cart_key VARCHAR(200) NOT NULL,
-        product_id VARCHAR(50) NOT NULL,
-        quantity INT DEFAULT 1,
+        id           INT AUTO_INCREMENT PRIMARY KEY,
+        session_id   VARCHAR(100) NOT NULL,
+        cart_key     VARCHAR(200) NOT NULL,
+        product_id   VARCHAR(50) NOT NULL,
+        quantity     INT DEFAULT 1,
         variant_data TEXT,
-        size VARCHAR(50),
+        size         VARCHAR(50),
         UNIQUE KEY unique_cart_item (session_id, cart_key)
     )");
 
-    // plain text passwords as requested
-    $stmt = $pdo->prepare("INSERT IGNORE INTO users (username, password, is_admin) VALUES (?, ?, ?)");
-    $stmt->execute(["admin", "admin123", 1]);
-    $stmt->execute(["user1", "user123", 0]);
+    // orders - only stores user_id as foreign key, no duplicate user info
+    // to get username/phone/address we join with the users table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS orders (
+        id         INT AUTO_INCREMENT PRIMARY KEY,
+        user_id    INT NOT NULL,
+        total      DECIMAL(10,2) NOT NULL,
+        status     VARCHAR(50) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )");
 
-    // seed products with stock values
+    // order_items - product_name and price are kept on purpose
+    // so the order history stays accurate even if product is deleted or price changes later
+    $pdo->exec("CREATE TABLE IF NOT EXISTS order_items (
+        id           INT AUTO_INCREMENT PRIMARY KEY,
+        order_id     INT NOT NULL,
+        product_id   VARCHAR(50) NOT NULL,
+        product_name VARCHAR(255) NOT NULL,
+        price        DECIMAL(10,2) NOT NULL,
+        quantity     INT NOT NULL,
+        variant_info VARCHAR(255),
+        FOREIGN KEY (order_id) REFERENCES orders(id)
+    )");
+
+    // default accounts
+    $stmt = $pdo->prepare("INSERT IGNORE INTO users (username, password, phone, address, is_admin) VALUES (?, ?, ?, ?, ?)");
+    $stmt->execute(["admin", "admin123", "0555000000", "Admin HQ", 1]);
+    $stmt->execute(["user1", "user123",  "0559734667", "123 Test Street", 0]);
+
+    // seed products
     $products = [
         ["p1", "Summit Series Alpha Backpack", 249.99, "Bags",
          "Ultra-durable, weather-resistant 45L backpack for extended backcountry missions. Features adjustable suspension, multiple attachment points, and hydration sleeve.",
          "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", 15, 0],
-        ["p2", "Terra Nova 2-Person Tent", 399.00, "Shelter",
-         "Ultralight 4-season tent with a geodesic design. Built to withstand high winds and heavy snow loads while staying under 2kg.",
-         "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", 5, 0],
         ["p3", "Merino Wool Base Layer Top", 85.00, "Apparel",
          "Temperature-regulating, odor-resistant 100% merino wool. The perfect foundation for any cold-weather layering system.",
          "https://images.unsplash.com/photo-1618354691438-25bc04584c23?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", 20, 0],
         ["p4", "Titanium Camp Stove", 54.50, "Cooking",
          "Micro-sized, high-output stove that boils a liter of water in under 3 minutes. Folds down to fit inside your mug.",
-         "assets/AGTitaniumRange2023-70.png", 12, 0],
+         "https://images.unsplash.com/photo-1606228303038-f80e7d0bbd60?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", 12, 0],
         ["p5", "Alpine Ascend Hiking Boots", 189.95, "Footwear",
          "Waterproof, breathable Gore-Tex lined boots with Vibram soles for unmatched traction on wet and rocky terrain.",
-         "https://images.unsplash.com/photo-1520639888713-7851133b1ed0?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", 7, 1],
+         "https://images.unsplash.com/photo-1520639888713-7851133b1ed0?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", 7, 0],
         ["p6", "Down Sleeping Bag (15F)", 289.00, "Sleeping",
          "800-fill water-resistant down provides exceptional warmth without the weight. Mummy shape maximizes thermal efficiency.",
-         "assets/SS24Womens-Riff-15F-Down-Sleeping-Bag-1__44714.1699022633.png", 6, 0],
-        ["p7", "Nike ReactX Rejuven8", 140.00, "Footwear",
-         "Experience next-level comfort with the ReactX Rejuven8. Features ultra-responsive cushioning and a breathable mesh upper.",
-         "shoe1/WMNS+NIKE+REACTX+REJUVEN8.avif", 10, 1],
-        ["p8", "G.T. Cut 3 Turbo", 190.00, "Footwear",
-         "Built for speed and quick cuts, the G.T. Cut 3 Turbo provides elite traction and explosive energy return.",
-         "shoe2/G.T.+CUT+3+TURBO.avif", 10, 1],
+         "https://images.unsplash.com/photo-1559810852-25927c3a05f1?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", 6, 0],
     ];
 
-    $stmt = $pdo->prepare("REPLACE INTO products (id, name, price, category, description, image, stock, customizable) VALUES (?, ?, ?, ?, ?,?,?,?)");
+    $stmt = $pdo->prepare("INSERT IGNORE INTO products (id, name, price, category, description, image, stock, customizable) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     foreach ($products as $p) {
         $stmt->execute($p);
     }
 
-    // make the uploads folder so we can save product images there
+    // create uploads folder for product images
     $uploadDir = __DIR__ . "/uploads";
     if (!is_dir($uploadDir)) {
         mkdir($uploadDir, 0755, true);
@@ -95,7 +111,8 @@ try {
 
     echo "Database setup done!<br>";
     echo "Admin: admin / admin123<br>";
-    echo "User: user1 / user123";
+    echo "User: user1 / user123<br>";
+    echo "<br><strong>Tables created:</strong> users, products, cart, orders, order_items";
 
 } catch (PDOException $e) {
     echo "Error: " . $e->getMessage();

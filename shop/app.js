@@ -12,21 +12,11 @@ const SHOE_VARIANTS = [
     { id: 'black',  color: '#1C1917', name: 'Stealth Black', image: 'https://images.unsplash.com/photo-1539185441755-769473a23570?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' }
 ];
 const SHOE_SIZES = ['US 7', 'US 8', 'US 9', 'US 10', 'US 11', 'US 12'];
-const NIKE_REACTX_VARIANTS = [
-    { id: 'v1', color: '#5A78D7', name: 'Oceanic Blue',  image: 'shoe1/WMNS+NIKE+REACTX+REJUVEN8.avif' },
-    { id: 'v2', color: 'linear-gradient(135deg, #255BBC 50%, #8F0218 50%)', name: 'Crimson Red',   image: 'shoe1/WMNS+NIKE+REACTX+REJUVEN8 (1).avif' },
-    { id: 'v3', color: '#DA1E6B', name: 'Magenta Pink',  image: 'shoe1/WMNS+NIKE+REACTX+REJUVEN8 (2).avif' },
-    { id: 'v4', color: '#110F10', name: 'Pitch Black',   image: 'shoe1/WMNS+NIKE+REACTX+REJUVEN8 (3).avif' }
-];
-const NIKE_GTCUT_VARIANTS = [
-    { id: 'v1', color: '#9EDB7E', name: 'Lime Green',    image: 'shoe2/G.T.+CUT+3+TURBO.avif' },
-    { id: 'v2', color: '#202948', name: 'Deep Navy',     image: 'shoe2/G.T.+CUT+3+TURBO (1).avif' }
-];
 
 const state = {
     products: [],
     cart: [],
-    user: null
+    user: null  // { username, isAdmin, phone, address }
 };
 
 // simple fetch wrapper for our api
@@ -47,24 +37,19 @@ async function api(action, data = null, method = "GET") {
 async function init() {
     const sessionData = await api("check_session");
     if (sessionData.loggedIn) {
-        state.user = { username: sessionData.username, isAdmin: sessionData.isAdmin };
+        state.user = {
+            username: sessionData.username,
+            isAdmin:  sessionData.isAdmin,
+            phone:    sessionData.phone || "",
+            address:  sessionData.address || ""
+        };
     }
 
     const products = await api("get_products");
-    if (Array.isArray(products)) {
-        state.products = products.map(p => {
-            if (p.customizable) {
-                p.sizes = SHOE_SIZES;
-                if (p.name.includes("ReactX")) p.variants = NIKE_REACTX_VARIANTS;
-                else if (p.name.includes("G.T. Cut")) p.variants = NIKE_GTCUT_VARIANTS;
-                else p.variants = SHOE_VARIANTS;
-            }
-            return p;
-        });
-    } else {
-        console.error("Failed to load products:", products);
-        state.products = [];
-    }
+    state.products = products.map(p => {
+        if (p.customizable) { p.variants = SHOE_VARIANTS; p.sizes = SHOE_SIZES; }
+        return p;
+    });
 
     const cartItems = await api("get_cart");
     state.cart = cartItems.map(item => ({
@@ -122,6 +107,7 @@ const routes = {
     '/login':       renderLogin,
     '/register':    renderRegister,
     '/admin':       renderAdmin,
+    '/profile':     renderProfile,
 };
 
 function handleRoute() {
@@ -218,14 +204,15 @@ function renderLanding(root) {
           <img src="https://images.unsplash.com/photo-1527004013197-933c4bb611b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" alt="Mountain lake">
         </div>
         <div class="collage-item collage-wide">
-          <img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80" alt="Hikers in fog">
+          <img src="https://images.unsplash.com/photo-1486915309615-1eccd3f6e0a7?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80" alt="Hikers in fog">
           <div class="collage-tag">Expedition Gear</div>
         </div>
         <div class="collage-item">
           <img src="https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" alt="Rocky terrain">
         </div>
       </div>
-      </div>
+      <div class="collage-accent"></div>
+      <div class="collage-coords">50.03544286908985N<br>36.36396570730049W</div>
     </section>
 
     <section class="landing-categories">
@@ -245,7 +232,7 @@ function renderLanding(root) {
             <span class="category-label">Footwear</span>
           </a>
           <a href="#/shop" class="category-card">
-            <img src="https://images.pexels.com/photos/2113994/pexels-photo-2113994.jpeg?cs=srgb&dl=pexels-joey-nguy%E1%BB%85n-2113994.jpg&fm=jpg" alt="Accessories">
+            <img src="https://images.unsplash.com/photo-1606228303038-f80e7d0bbd60?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" alt="Accessories">
             <span class="category-label">Accessories</span>
           </a>
         </div>
@@ -457,7 +444,7 @@ function renderProductDetail(root, params) {
         if (product.customizable) {
             const colorsHTML = product.variants.map(v => `
         <button class="color-swatch ${v.id === selectedVariant.id ? 'active' : ''}"
-                style="background: ${v.color};" data-id="${v.id}" title="${v.name}"></button>
+                style="background-color: ${v.color};" data-id="${v.id}" title="${v.name}"></button>
       `).join('');
             const sizesHTML = product.sizes.map(s => `
         <button class="size-btn ${s === selectedSize ? 'active' : ''}" data-size="${s}">${s}</button>
@@ -658,7 +645,7 @@ function renderLogin(root) {
         const result = await api("login", { username, password }, "POST");
         if (result.error) { errBox.textContent = result.error; errBox.style.display = 'block'; return; }
 
-        state.user = { username: result.username, isAdmin: result.isAdmin };
+        state.user = { username: result.username, isAdmin: result.isAdmin, phone: result.phone || "", address: result.address || "" };
         showToast(`Welcome back, ${result.username}!`);
         updateAuthUI();
         window.location.hash = result.isAdmin ? '/admin' : '/';
@@ -683,6 +670,15 @@ function renderRegister(root) {
           <input type="password" id="reg-password" class="form-input">
           <small style="color:var(--text-muted);">At least 4 characters</small>
         </div>
+        <div class="form-group">
+          <label class="form-label">Phone Number</label>
+          <input type="tel" id="reg-phone" class="form-input" placeholder="e.g. 0559734667" maxlength="10">
+          <small style="color:var(--text-muted);">10 digits, starting with 0 (Algerian format)</small>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Address</label>
+          <input type="text" id="reg-address" class="form-input" placeholder="e.g. 12 Rue Didouche, Alger">
+        </div>
         <button id="reg-btn" class="btn btn-primary" style="width:100%;">Register</button>
         <p style="text-align:center;margin-top:20px;color:var(--text-muted);">
           Already have an account? <a href="#/login" style="color:var(--accent);">Login</a>
@@ -694,11 +690,21 @@ function renderRegister(root) {
     document.getElementById('reg-btn').addEventListener('click', async () => {
         const username = document.getElementById('reg-username').value.trim();
         const password = document.getElementById('reg-password').value.trim();
+        const phone    = document.getElementById('reg-phone').value.trim();
+        const address  = document.getElementById('reg-address').value.trim();
         const errBox   = document.getElementById('reg-error');
 
-        if (!username || !password) { errBox.textContent = "Please fill in all fields."; errBox.style.display = 'block'; return; }
+        if (!username || !password || !phone || !address) {
+            errBox.textContent = "Please fill in all fields."; errBox.style.display = 'block'; return;
+        }
 
-        const result = await api("register", { username, password }, "POST");
+        // Client-side Algerian phone validation
+        if (!/^0[0-9]{9}$/.test(phone)) {
+            errBox.textContent = "Phone number must be 10 digits and start with 0 (e.g. 0559734667).";
+            errBox.style.display = 'block'; return;
+        }
+
+        const result = await api("register", { username, password, phone, address }, "POST");
         if (result.error) { errBox.textContent = result.error; errBox.style.display = 'block'; return; }
 
         showToast("Account created! Please log in.");
@@ -744,10 +750,6 @@ function renderAdmin(root) {
             <label class="form-label">Stock Quantity *</label>
             <input type="number" min="0" id="p-stock" class="form-input" value="10">
           </div>
-          <div class="form-group" style="display:flex;align-items:center;gap:10px;">
-            <input type="checkbox" id="p-customizable" style="width:18px;height:18px;">
-            <label class="form-label" style="margin-bottom:0;">Mark as Customizable (Shoes only)</label>
-          </div>
 
           <div class="form-group">
             <label class="form-label">Product Image *</label>
@@ -784,14 +786,39 @@ function renderAdmin(root) {
         </div>
 
         <div class="admin-content">
-          <h3 style="margin-bottom:24px;">Manage Products</h3>
+          <div style="display:flex;gap:12px;margin-bottom:24px;">
+            <button id="tab-products" class="btn btn-primary" onclick="showAdminTab('products')">Products</button>
+            <button id="tab-orders" class="btn btn-secondary" onclick="showAdminTab('orders')">Orders</button>
+          </div>
           <div id="admin-product-list" style="display:flex;flex-direction:column;gap:16px;"></div>
+          <div id="admin-order-list" style="display:none;flex-direction:column;gap:16px;"></div>
         </div>
       </div>
     </div>
   `;
 
     renderAdminProductList();
+
+    // switch between products and orders tabs
+    window.showAdminTab = async function(tab) {
+        const productList = document.getElementById('admin-product-list');
+        const orderList   = document.getElementById('admin-order-list');
+        const tabProducts = document.getElementById('tab-products');
+        const tabOrders   = document.getElementById('tab-orders');
+
+        if (tab === 'products') {
+            productList.style.display = 'flex';
+            orderList.style.display   = 'none';
+            tabProducts.className = 'btn btn-primary';
+            tabOrders.className   = 'btn btn-secondary';
+        } else {
+            productList.style.display = 'none';
+            orderList.style.display   = 'flex';
+            tabProducts.className = 'btn btn-secondary';
+            tabOrders.className   = 'btn btn-primary';
+            renderAdminOrders();
+        }
+    };
 
     // which image input is active
     let imageMode   = 'url';   // 'url' or 'file'
@@ -874,7 +901,6 @@ function renderAdmin(root) {
         previewContainer.style.display = 'none';
         formError.style.display = 'none';
         uploadStatus.textContent = '';
-        document.getElementById('p-customizable').checked = false;
         currentMode = 'add';
         editingId   = null;
         title.textContent       = 'Add New Product';
@@ -891,7 +917,6 @@ function renderAdmin(root) {
         const category = document.getElementById('p-category').value;
         const stock    = parseInt(document.getElementById('p-stock').value);
         const desc     = document.getElementById('p-desc').value.trim();
-        const customizable = document.getElementById('p-customizable').checked;
 
         // figure out what image url we're using
         let image = '';
@@ -909,9 +934,9 @@ function renderAdmin(root) {
 
         let result;
         if (currentMode === 'add') {
-            result = await api("add_product", { name, price, category, image, description: desc, stock, customizable }, "POST");
+            result = await api("add_product", { name, price, category, image, description: desc, stock }, "POST");
         } else {
-            result = await api("update_product", { id: editingId, name, price, category, image, description: desc, stock, customizable }, "POST");
+            result = await api("update_product", { id: editingId, name, price, category, image, description: desc, stock }, "POST");
         }
 
         if (result.error) {
@@ -947,7 +972,6 @@ function renderAdmin(root) {
         document.getElementById('p-price').value    = product.price;
         document.getElementById('p-stock').value    = product.stock;
         document.getElementById('p-desc').value     = product.description;
-        document.getElementById('p-customizable').checked = product.customizable;
 
         // if the image is a url, switch to url tab
         if (product.image.startsWith('http')) {
@@ -1089,13 +1113,30 @@ window.checkout = async function() {
         toggleCartDrawer(false);
         return;
     }
+
+    // send the order to the server - it saves it and reduces stock
+    const result = await api("checkout", {}, "POST");
+
+    if (result.error) {
+        showToast(result.error);
+        return;
+    }
+
+    // clear local cart after successful order
     state.cart = [];
-    await api("clear_cart", {}, "POST");
+
+    // refresh products so stock numbers are up to date
+    const products = await api("get_products");
+    state.products = products.map(p => {
+        if (p.customizable) { p.variants = SHOE_VARIANTS; p.sizes = SHOE_SIZES; }
+        return p;
+    });
+
     updateCartBadge();
     renderCartDrawerContent();
     renderCartPageItems();
     toggleCartDrawer(false);
-    showToast('Order placed successfully! Thank you.', 4000);
+    showToast('Order #' + result.orderId + ' placed! Total: $' + result.total.toFixed(2), 4000);
     window.location.hash = '/';
 };
 
@@ -1166,15 +1207,15 @@ function updateAuthUI() {
         const adminLinkMobile = state.user.isAdmin ? `<a href="#/admin" class="mobile-link">Admin</a>` : '';
         navAuth.innerHTML = `
       ${adminLink}
-      <div style="display:flex;align-items:center;gap:8px;color:var(--text-primary);font-weight:600;font-size:0.875rem;">
+      <a href="#/profile" style="display:flex;align-items:center;gap:8px;color:var(--text-primary);font-weight:600;font-size:0.875rem;text-decoration:none;cursor:pointer;padding:6px 10px;border-radius:var(--radius-sm);transition:background 0.2s;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='transparent'">
         <i data-lucide="user" style="width:16px;"></i> ${state.user.username}
-      </div>
+      </a>
       <button class="btn btn-secondary" onclick="logout()" style="padding:8px 16px;font-size:0.75rem;">Logout</button>
     `;
         mobileAuth.innerHTML = `
       ${adminLinkMobile}
-      <div style="margin:16px 0;color:var(--accent);font-weight:600;">Logged in as ${state.user.username}</div>
-      <button class="btn btn-secondary" onclick="logout()" style="width:100%;">Logout</button>
+      <a href="#/profile" class="mobile-link" onclick="document.getElementById('mobile-menu').classList.remove('open')" style="color:var(--accent);font-weight:600;">My Profile (${state.user.username})</a>
+      <button class="btn btn-secondary" onclick="logout()" style="width:100%;margin-top:8px;">Logout</button>
     `;
     } else {
         navAuth.innerHTML    = `<a href="#/login" class="btn btn-primary" style="padding:8px 24px;">Login</a>`;
@@ -1186,8 +1227,6 @@ function updateAuthUI() {
 window.logout = async function() {
     await api("logout", {}, "POST");
     state.user = null;
-    state.cart = [];
-    updateCartBadge();
     updateAuthUI();
     showToast('Logged out successfully');
     window.location.hash = '/';
@@ -1207,3 +1246,163 @@ function showToast(message, duration = 3000) {
 }
 
 window.addEventListener('DOMContentLoaded', init);
+
+// Profile page
+async function renderProfile(root) {
+    if (!state.user) { window.location.hash = '/login'; return; }
+
+    root.innerHTML = `
+    <div class="container">
+      <div class="auth-container" style="max-width:520px;">
+        <h1 class="auth-title" style="margin-bottom:8px;">My Profile</h1>
+        <p style="color:var(--text-muted);text-align:center;margin-bottom:28px;font-size:0.9rem;">Update your personal information</p>
+        <div id="profile-error"   style="color:#ef4444;margin-bottom:12px;display:none;padding:10px 14px;background:#fff1f1;border-radius:var(--radius-sm);"></div>
+        <div id="profile-success" style="color:#22c55e;margin-bottom:12px;display:none;padding:10px 14px;background:#f0fdf4;border-radius:var(--radius-sm);"></div>
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input type="text" id="prof-username" class="form-input" value="${state.user.username}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">New Password <span style="color:var(--text-muted);font-weight:400;font-size:0.8rem;">(leave blank to keep current)</span></label>
+          <input type="password" id="prof-password" class="form-input" placeholder="Enter new password">
+          <small style="color:var(--text-muted);">At least 4 characters</small>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone Number</label>
+          <input type="tel" id="prof-phone" class="form-input" maxlength="10" placeholder="e.g. 0559734667" value="${state.user.phone || ''}">
+          <small style="color:var(--text-muted);">10 digits, starting with 0 (Algerian format)</small>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Address</label>
+          <input type="text" id="prof-address" class="form-input" placeholder="e.g. 12 Rue Didouche, Alger" value="${state.user.address || ''}">
+        </div>
+        <button id="prof-save-btn" class="btn btn-primary" style="width:100%;padding:14px;">Save Changes</button>
+        <a href="#/" class="btn btn-secondary" style="width:100%;display:block;text-align:center;margin-top:12px;padding:14px;">Back to Shop</a>
+      </div>
+    </div>
+  `;
+
+    // Load fresh profile data from server
+    const profile = await api("get_profile");
+    if (profile && !profile.error) {
+        document.getElementById('prof-username').value = profile.username || state.user.username;
+        document.getElementById('prof-phone').value   = profile.phone || state.user.phone || '';
+        document.getElementById('prof-address').value = profile.address || state.user.address || '';
+    }
+
+    document.getElementById('prof-save-btn').addEventListener('click', async () => {
+        const username = document.getElementById('prof-username').value.trim();
+        const password = document.getElementById('prof-password').value.trim();
+        const phone    = document.getElementById('prof-phone').value.trim();
+        const address  = document.getElementById('prof-address').value.trim();
+        const errBox   = document.getElementById('profile-error');
+        const okBox    = document.getElementById('profile-success');
+
+        errBox.style.display = 'none';
+        okBox.style.display  = 'none';
+
+        if (!username || !phone || !address) {
+            errBox.textContent = "Username, phone and address are required.";
+            errBox.style.display = 'block'; return;
+        }
+
+        if (!/^0[0-9]{9}$/.test(phone)) {
+            errBox.textContent = "Phone must be 10 digits and start with 0 (e.g. 0559734667).";
+            errBox.style.display = 'block'; return;
+        }
+
+        const btn = document.getElementById('prof-save-btn');
+        btn.disabled = true; btn.textContent = 'Saving...';
+
+        const result = await api("update_profile", { username, password, phone, address }, "POST");
+
+        btn.disabled = false; btn.textContent = 'Save Changes';
+
+        if (result.error) {
+            errBox.textContent = result.error; errBox.style.display = 'block'; return;
+        }
+
+        // Update local state
+        state.user.username = result.username;
+        state.user.phone    = result.phone;
+        state.user.address  = result.address;
+        updateAuthUI();
+
+        okBox.textContent = 'Profile updated successfully!';
+        okBox.style.display = 'block';
+        document.getElementById('prof-password').value = '';
+    });
+}
+
+// marks an order as done - admin only
+window.markOrderDone = async function(orderId) {
+    const result = await api("update_order_status", { orderId, status: "done" }, "POST");
+    if (result.error) {
+        showToast(result.error);
+        return;
+    }
+    showToast('Order #' + orderId + ' marked as done');
+    renderAdminOrders();
+};
+
+// renders the orders list in the admin dashboard
+async function renderAdminOrders() {
+    const list = document.getElementById('admin-order-list');
+    if (!list) return;
+
+    list.innerHTML = '<div style="color:var(--text-muted);">Loading orders...</div>';
+
+    const orders = await api("get_orders");
+
+    if (orders.error) {
+        list.innerHTML = '<div style="color:#ef4444;">Error loading orders: ' + orders.error + '</div>';
+        return;
+    }
+
+    if (orders.length === 0) {
+        list.innerHTML = '<div style="color:var(--text-muted);padding:40px;text-align:center;">No orders yet.</div>';
+        return;
+    }
+
+    list.innerHTML = orders.map(order => {
+        const date = new Date(order.created_at).toLocaleString();
+
+        // build the items list for this order
+        const itemsHtml = order.items.map(item => `
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-color);font-size:0.875rem;">
+                <span>${item.product_name} ${item.variant_info ? '(' + item.variant_info + ')' : ''} x${item.quantity}</span>
+                <span>$${(item.price * item.quantity).toFixed(2)}</span>
+            </div>
+        `).join('');
+
+        // color the status badge
+        const statusColor  = order.status === 'pending' ? '#f97316' : '#22c55e';
+        const doneBtn      = order.status === 'pending'
+            ? `<button class="btn btn-primary" onclick="markOrderDone(${order.id})" style="padding:6px 14px;font-size:0.8rem;">
+                 <i data-lucide="check" style="width:14px;height:14px;"></i> Mark as Done
+               </button>`
+            : '';
+
+        return `
+        <div style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:20px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <div>
+                    <span style="font-weight:700;font-size:1.1rem;">Order #${order.id}</span>
+                    <span style="margin-left:12px;color:var(--text-muted);font-size:0.85rem;">${date}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <span style="background:${statusColor};color:#fff;padding:4px 12px;border-radius:20px;font-size:0.8rem;font-weight:600;">${order.status}</span>
+                    <span style="font-weight:700;color:var(--accent);font-size:1.1rem;">$${order.total.toFixed(2)}</span>
+                    ${doneBtn}
+                </div>
+            </div>
+            <div style="color:var(--text-muted);font-size:0.85rem;margin-bottom:6px;">
+                Customer: <strong style="color:var(--text-primary);">${order.username}</strong>
+            </div>
+            ${order.phone ? `<div style="color:var(--text-muted);font-size:0.85rem;margin-bottom:6px;">Phone: <strong style="color:var(--text-primary);">${order.phone}</strong></div>` : ''}
+            ${order.address ? `<div style="color:var(--text-muted);font-size:0.85rem;margin-bottom:12px;">Address: <strong style="color:var(--text-primary);">${order.address}</strong></div>` : ''}
+            <div>${itemsHtml}</div>
+        </div>
+        `;
+    }).join('');
+}
